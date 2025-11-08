@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP32 IoT Dashboard</title>
+<style>
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin: 0; background-color: #e0f2f7; color: #333; }
+  .header { background-color: #007bff; color: white; padding: 25px 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+  .header h1 { margin: 0; font-size: 2.5em; letter-spacing: 2px; }
+  .container { max-width: 700px; margin: 30px auto; padding: 25px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.2); }
+  .status-bar { background-color: #4CAF50; color: white; padding: 10px; border-radius: 8px; margin-bottom: 25px; font-size: 1.1em; display: flex; justify-content: center; align-items: center; transition: background-color 0.5s ease; }
+  .status-bar.connecting { background-color: #ffc107; }
+  .status-bar.error { background-color: #dc3545; }
+  .status-icon { margin-right: 10px; font-size: 1.3em; }
+
+  .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }
+  .data-card {
+    background: linear-gradient(135deg, #f0f9ff, #c9e6ff);
+    border: 1px solid #a8d5ff;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: transform 0.3s ease, box-shadow 0.3s ease; /* Animation for cards */
+  }
+  .data-card:hover {
+    transform: translateY(-5px); /* Lift effect on hover */
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+  }
+  .data-card h2 { margin-top: 0; color: #0056b3; font-size: 1.5em; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 15px; }
+  .data-card p { font-size: 1.3em; color: #333; font-weight: bold; }
+  .unit { font-size: 0.8em; color: #666; margin-left: 5px; }
+
+  /* Analog Chart (Progress Bar) Styling */
+  .progress-bar-container { width: 100%; background-color: #ddd; border-radius: 10px; overflow: hidden; margin-top: 10px; height: 25px; }
+  .progress-bar { height: 100%; text-align: right; padding-right: 10px; line-height: 25px; color: white; border-radius: 10px; transition: width 0.5s ease-in-out, background 0.5s ease-in-out; background: linear-gradient(90deg, #1abc9c, #2ecc71); } /* Green/Turquoise */
+
+  .button-container { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
+  .button {
+    background-color: #28a745;
+    color: white;
+    padding: 12px 25px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1.1em;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease; /* Animation for buttons */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  .button.off { background-color: #dc3545; }
+  .button:hover { background-color: #218838; transform: translateY(-2px); box-shadow: 0 6px 10px rgba(0,0,0,0.2); }
+  .button.off:hover { background-color: #c82333; }
+  .button:active {
+    transform: translateY(1px); /* Press effect */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .led-indicator {
+    display: inline-block;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    border: 2px solid #ccc;
+    background-color: #e0e0e0;
+    margin-left: 15px;
+    vertical-align: middle;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+    transition: background-color 0.4s ease, box-shadow 0.4s ease, transform 0.2s ease; /* Animation for LED */
+  }
+  .led-indicator.on {
+    background-color: #28a745;
+    border-color: #218838;
+    box-shadow: 0 0 10px #28a745, inset 0 2px 5px rgba(0,0,0,0.2); /* Green glowing effect */
+  }
+  .led-indicator.off {
+    background-color: #dc3545;
+    border-color: #c82333;
+    box-shadow: 0 0 10px #dc3545, inset 0 2px 5px rgba(0,0,0,0.2); /* Red glowing effect */
+  }
+
+  .footer { margin-top: 40px; padding: 20px; background-color: #0056b3; color: white; border-radius: 0 0 12px 12px; font-size: 0.9em; }
+  .footer p { margin: 5px 0; }
+  .footer a { color: #ADD8E6; text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>ESP32 IoT Dashboard</h1>
+</div>
+
+<div class="container">
+  <div class="status-bar" id="esp32-status">
+    <span class="status-icon">🌐</span> ESP32 IP: <span id="ipAddress">Connecting...</span> | Status: <span id="connectionStatus">Checking...</span>
+  </div>
+
+  <div class="grid-container">
+    <div class="data-card">
+      <h2>🌡️ Temperature</h2>
+      <p><span id="temperature">--</span> <span class="unit">&deg;C</span></p>
+    </div>
+
+    <div class="data-card">
+      <h2>💧 Humidity</h2>
+      <p><span id="humidity">--</span> <span class="unit">%</span></p>
+    </div>
+
+    <div class="data-card">
+      <h2>📊 Analog Value</h2>
+      <p><span id="adcValue">--</span></p>
+      <div class="progress-bar-container">
+        <div class="progress-bar" id="adcProgressBar" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <div class="data-card">
+      <h2>💡 LED Control</h2>
+      <p>Status: <span id="ledStatus">OFF</span> <span class="led-indicator" id="ledIndicator"></span></p>
+      <div class="button-container">
+        <button class="button" onclick="toggleLED(true)">Turn ON</button>
+        <button class="button off" onclick="toggleLED(false)">Turn OFF</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <p>Coded with ❤️ by Your Coding Partner</p>
+  <p>Data refreshed every 5 seconds.</p>
+</div>
+
+<script>
+  // Function to fetch and update sensor readings
+  function fetchSensorData() {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      var statusElement = document.getElementById("connectionStatus");
+      var statusBar = document.getElementById("esp32-status");
+      
+      if (this.readyState == 4) {
+        if (this.status == 200) {
+          try {
+            var data = JSON.parse(this.responseText);
+            document.getElementById("temperature").innerHTML = data.temperature.toFixed(1);
+            document.getElementById("humidity").innerHTML = data.humidity.toFixed(1);
+            document.getElementById("adcValue").innerHTML = data.adc;
+            
+            // Update Analog Chart (Progress Bar)
+            var adcPercentage = (data.adc / 4095) * 100; // ESP32 ADC is 12-bit (0-4095)
+            document.getElementById("adcProgressBar").style.width = adcPercentage.toFixed(0) + '%';
+            document.getElementById("adcProgressBar").innerText = adcPercentage.toFixed(0) + '%';
+            
+            var ledStatusElement = document.getElementById("ledStatus");
+            var ledIndicatorElement = document.getElementById("ledIndicator");
+
+            if (data.led == 1) {
+              ledStatusElement.innerHTML = "ON";
+              ledIndicatorElement.classList.remove("off");
+              ledIndicatorElement.classList.add("on");
+            } else {
+              ledStatusElement.innerHTML = "OFF";
+              ledIndicatorElement.classList.remove("on");
+              ledIndicatorElement.classList.add("off");
+            }
+
+            statusElement.innerHTML = "Online";
+            statusBar.classList.remove("connecting", "error");
+            statusBar.classList.add("online");
+
+          } catch (e) {
+            console.error("Error parsing JSON:", e);
+            statusElement.innerHTML = "Data Error";
+            statusBar.classList.remove("connecting", "online");
+            statusBar.classList.add("error");
+          }
+        } else {
+          statusElement.innerHTML = "Offline (" + this.status + ")";
+          statusBar.classList.remove("connecting", "online");
+            statusBar.classList.add("error");
+        }
+      }
+    };
+    xhttp.open("GET", "/readings", true);
+    xhttp.send();
+  }
