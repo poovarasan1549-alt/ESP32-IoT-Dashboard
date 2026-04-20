@@ -1,6 +1,9 @@
+// file: expense_tracker.cpp
 #include <iostream>
 #include <vector>
 #include <string>
+#include <limits>
+
 using namespace std;
 
 struct Transaction {
@@ -8,42 +11,64 @@ struct Transaction {
     double amount;
 };
 
+void clearBuffer() {
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+}
+
 int main() {
     vector<Transaction> transactions;
-    double income = 0, expense = 0;
-    cout << "==== Poovarasan Expense Tracker (C++ Console Demo) ====\n";
+    double income = 0.0, expense = 0.0;
 
     while (true) {
         cout << "\n1. Add Income\n2. Add Expense\n3. Show Summary\n4. Exit\nChoose: ";
         int choice;
         cin >> choice;
 
+        if (cin.fail()) {
+            cin.clear();
+            clearBuffer();
+            cout << "Invalid input\n";
+            continue;
+        }
+
         if (choice == 4) break;
 
-        Transaction t;
-        cout << "Enter description: ";
-        cin.ignore();
-        getline(cin, t.desc);
-        cout << "Enter amount: ";
-        cin >> t.amount;
+        if (choice == 1 || choice == 2) {
+            Transaction t;
 
-        if (choice == 1) {
-            income += t.amount;
-            t.amount = t.amount;
-        } else if (choice == 2) {
-            expense += t.amount;
-            t.amount = -t.amount;
+            clearBuffer(); // FIX: clean buffer before getline
+            cout << "Enter description: ";
+            getline(cin, t.desc);
+
+            cout << "Enter amount: ";
+            cin >> t.amount;
+
+            if (cin.fail() || t.amount < 0) {
+                cin.clear();
+                clearBuffer();
+                cout << "Invalid amount\n";
+                continue;
+            }
+
+            if (choice == 1) {
+                income += t.amount;        // ADD income
+            } else {
+                expense += t.amount;       // TRACK expense
+                t.amount = -t.amount;      // STORE negative
+            }
+
+            transactions.push_back(t);
         }
-        transactions.push_back(t);
-
-        if (choice == 3) {
+        else if (choice == 3) {
             cout << "\n--- Summary ---\n";
-            cout << "Total Income: ₹" << income << "\n";
-            cout << "Total Expense: ₹" << expense << "\n";
-            cout << "Balance: ₹" << (income - expense) << "\n";
+            cout << "Income: ₹" << income << endl;
+            cout << "Expense: ₹" << expense << endl;
+            cout << "Balance: ₹" << (income - expense) << endl;
+        }
+        else {
+            cout << "Invalid choice\n";
         }
     }
 
-    cout << "\nThank you for using Poovarasan Expense Tracker!\n";
     return 0;
 }
